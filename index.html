@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Manager - Hariprasad Sivakumar</title>
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Auth Check -->
+    <script>
+        (() => {
+            const auth = localStorage.getItem('isLoggedIn');
+            const loginTime = localStorage.getItem('loginTime');
+            
+            if (!auth || auth !== 'true') {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            if (loginTime) {
+                const hoursDiff = (Date.now() - parseInt(loginTime)) / (1000 * 60 * 60);
+                if (hoursDiff > 24) {
+                    ['isLoggedIn', 'username', 'loginTime'].forEach(key => localStorage.removeItem(key));
+                    window.location.href = 'login.html';
+                }
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">💼</span>
+                    <span class="logo-text">Invoice Manager</span>
+                </div>
+                <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle menu">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+            
+            <div class="user-card">
+                <div class="user-avatar">HS</div>
+                <div class="user-info">
+                    <h4>Hariprasad S.</h4>
+                    <p>Welcome back!</p>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="invoices">
+                    <span class="nav-icon">📄</span>
+                    <span class="nav-text">Invoices</span>
+                </a>
+                <a href="#" class="nav-item" data-page="clients">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Clients</span>
+                </a>
+                <a href="#" class="nav-item" data-page="expenses">
+                    <span class="nav-icon">💰</span>
+                    <span class="nav-text">Expenses</span>
+                </a>
+                <a href="#" class="nav-item" data-page="analytics">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-text">Analytics</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Mobile Header -->
+            <header class="mobile-header">
+                <button class="hamburger" id="hamburger" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <h1 class="mobile-title">Invoice Manager</h1>
+                <div class="mobile-actions">
+                    <button class="notification-btn" aria-label="Notifications">
+                        <span>🔔</span>
+                        <span class="badge">3</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Dashboard Page -->
+            <section id="dashboard-page" class="page active">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h1>Dashboard</h1>
+                        <p>Track your business performance and metrics</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn btn-primary" id="create-invoice-btn">
+                            <span>➕</span> Create Invoice
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="content-grid">
+                    <!-- Stats Cards -->
+                    <div class="stats-row">
+                        <div class="stat-card">
+                            <div class="stat-icon">💵</div>
+                            <div class="stat-content">
+                                <h3 id="total-earnings">₹0</h3>
+                                <p>Total Earnings</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📄</div>
+                            <div class="stat-content">
+                                <h3 id="total-invoices">0</h3>
+                                <p>Total Invoices</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">👥</div>
+                            <div class="stat-content">
+                                <h3 id="total-clients">0</h3>
+                                <p>Total Clients</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⏳</div>
+                            <div class="stat-content">
+                                <h3 id="pending-amount">₹0</h3>
+                                <p>Pending Amount</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts Section -->
+                    <div class="charts-row">
+                        <div class="chart-card">
+                            <h3>Monthly Revenue</h3>
+                            <canvas id="monthly-revenue-chart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Invoice Status</h3>
+                            <canvas id="invoice-status-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="activity-card">
+                        <h3>Recent Invoices</h3>
+                        <div id="recent-invoices" class="activity-list"></div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Invoices Page -->
+            <section id="invoices-page" class="page">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h1>Invoices</h1>
+                        <p>Manage all your invoices</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn btn-secondary" id="export-invoices-btn">
+                            <span>📥</span> Export
+                        </button>
+                        <button class="btn btn-primary" id="new-invoice-btn">
+                            <span>➕</span> New Invoice
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="filters-bar">
+                    <div class="search-box">
+                        <input type="text" id="invoice-search" placeholder="Search invoices...">
+                    </div>
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-filter="all">All</button>
+                        <button class="filter-tab" data-filter="paid">Paid</button>
+                        <button class="filter-tab" data-filter="pending">Pending</button>
+                        <button class="filter-tab" data-filter="overdue">Overdue</button>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Client</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Due Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoices-tbody"></tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <!-- Clients Page -->
+            <section id="clients-page" class="page">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h1>Clients</h1>
+                        <p>Manage your client relationships</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn btn-primary" id="add-client-btn">
+                            <span>➕</span> Add Client
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="clients-grid" id="clients-grid"></div>
+            </section>
+            
+            <!-- Expenses Page -->
+            <section id="expenses-page" class="page">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h1>Expenses</h1>
+                        <p>Track and manage your expenses</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn btn-primary" id="add-expense-btn">
+                            <span>➕</span> Add Expense
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="expense-content" id="expense-content"></div>
+            </section>
+            
+            <!-- Analytics Page -->
+            <section id="analytics-page" class="page">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h1>Analytics</h1>
+                        <p>Business insights and reports</p>
+                    </div>
+                </div>
+                
+                <div class="analytics-content" id="analytics-content"></div>
+            </section>
+            
+            <!-- Settings Page -->
+            <section id="settings-page" class="page">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h1>Settings</h1>
+                        <p>Configure your preferences</p>
+                    </div>
+                </div>
+                
+                <div class="settings-content" id="settings-content"></div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
